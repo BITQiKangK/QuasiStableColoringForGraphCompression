@@ -1,6 +1,8 @@
 import numpy as np
 import torch
 import scipy
+import json
+import os
 
 
 class ColorStatus:
@@ -43,13 +45,17 @@ class ColorStatus:
 
 
 class QuasiStableColoring:
-    def __init__(self, G):
+    def __init__(self, G, store_root, store=False):
         self.G = G
         self.v = G.num_nodes
         self.p = list()
         self.p.append(torch.arange(G.num_nodes, dtype=torch.int32))
         self.BASE_MATRIX_SIZE = 128
         self.q_error = np.inf
+        self.store = store
+        self.store_root = store_root
+        if store and not os.path.exists(os.path.join(self.store_root)):
+            os.makedirs(self.store_root)
 
     def split_color(self, color_status, witness_i, witness_j, threshold):
         split = color_status.neighbor[self.p[witness_i], witness_j]
@@ -156,6 +162,13 @@ class QuasiStableColoring:
             if len(self.p) % 10 == 0:
                 print(f"{len(self.p)} colors with {max(q_error_in, q_error_out)} error")
 
+            if len(self.p) % 100 ==0: 
+                if self.store:
+                    file_name = os.path.join(self.store_root, str(len(self.p)) + ".json")
+                    with open(file_name, 'w') as f:
+                        converted_list = [t.tolist() for t in self.p]
+                        json.dump(converted_list, f)
+                    
             if q_error_in <= q_errors and q_error_out <= q_errors:
                 break
 
