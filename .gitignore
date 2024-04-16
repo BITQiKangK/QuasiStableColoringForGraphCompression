@@ -164,6 +164,8 @@ build/
 dist/
 *.egg-info/
 dataset/
+data_compressed/
+logs/
 *.swp
 *.vscode
 *.DS_Store
