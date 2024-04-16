@@ -124,7 +124,6 @@ class QuasiStableColoring:
 
         errors[:, :] = upper_deg - lower_deg
 
-
     def pick_witness(self, color_status):
         m = len(self.p)
         t = torch.argmax(color_status.errors_base[:m, :m])
@@ -135,7 +134,6 @@ class QuasiStableColoring:
         split_deg = color_status.neighbor[self.p[witness[0]], witness[1]].mean()
 
         return witness[0], witness[1], split_deg, q_error
-
 
     def q_color(self, n_colors=np.Inf, q_errors=0.0):
         weights = self.G.adj_t.to_sparse_csc()
