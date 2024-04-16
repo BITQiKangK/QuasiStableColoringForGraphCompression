@@ -66,16 +66,13 @@ class QuasiStableColoring:
 
     def partition_matrix(self):
         """返回初始结点与颜色对应关系稀疏矩阵"""
-        I = torch.arange(self.v, dtype=torch.int32)
-        J = torch.zeros(self.v, dtype=torch.int32)
-        V = torch.ones(self.v, dtype=torch.float32)
-        p_sparse = torch.sparse_coo_tensor(torch.stack((I, J)), V, size=(self.v, len(self.p)), dtype=torch.float32)
-        return p_sparse
+        p_matrix = torch.ones(self.v, 1)
+        return p_matrix
 
     def init_status(self, color_status, weights):
         """初始化出度，入度颜色状态"""
-        p_sparse = self.partition_matrix()
-        color_status.neighbor = torch.mm(weights.to_sparse_coo(), p_sparse.to_dense())
+        p_matrix = self.partition_matrix()
+        color_status.neighbor = torch.mm(weights.to_sparse_coo(), p_matrix)
 
         m = len(self.p)
         upper_deg = color_status.upper_base[:m, :m]
