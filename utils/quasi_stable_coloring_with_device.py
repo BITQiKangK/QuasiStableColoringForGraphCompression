@@ -139,7 +139,7 @@ class QuasiStableColoring:
         q_error = color_status.errors_base[witness[0], witness[1]]
 
         t = color_status.neighbor[self.p[witness[0]].cpu(), witness[1]]
-        split_deg = torch.kthvalue(t, int(t.shape[0] * 0.75))[0]
+        split_deg = t.mean()
 
         return witness[0], witness[1], split_deg, q_error
 
