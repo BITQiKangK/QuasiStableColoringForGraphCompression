@@ -3,6 +3,12 @@ import torch
 import scipy
 import json
 import os
+import time
+import logging
+
+def save_list_to_json(l:list, filename):
+    with open(filename, 'w') as f:
+        json.dump(l, f)
 
 
 class ColorStatus:
@@ -45,7 +51,7 @@ class ColorStatus:
 
 
 class QuasiStableColoring:
-    def __init__(self, G, store_root, store=False):
+    def __init__(self, G, store_root, store=False, directed=True, store_step=100, log_step=10):
         self.G = G
         self.v = G.num_nodes
         self.p = list()
@@ -54,8 +60,17 @@ class QuasiStableColoring:
         self.q_error = np.inf
         self.store = store
         self.store_root = store_root
-        if store and not os.path.exists(os.path.join(self.store_root)):
+        self.directed = directed
+        if not os.path.exists(os.path.join(self.store_root)):
             os.makedirs(self.store_root)
+        self.log_step = log_step
+        self.store_step = store_step
+
+        logging.basicConfig(level=logging.INFO,
+                            format='%(asctime)s - %(levelname)s - %(message)s',
+                            handlers=[logging.FileHandler(os.path.join(self.store_root, f'logfile_store_{store}.log'), mode='w'), 
+                                      logging.StreamHandler()])
+        self.logger = logging.getLogger('my_logger')
 
     def split_color(self, color_status, witness_i, witness_j, threshold):
         split = color_status.neighbor[self.p[witness_i], witness_j]
@@ -138,7 +153,12 @@ class QuasiStableColoring:
 
         return witness[0], witness[1], split_deg, q_error
 
-    def q_color(self, n_colors=np.Inf, q_errors=0.0):
+    def q_color_directed(self, n_colors=np.Inf, q_errors=0.0):
+        time_cost_list = []
+        q_error_in_list = []
+        q_error_out_list = []
+        q_error_list = []
+        time1 = time.time()
         weights = self.G.adj_t.to_sparse_csc()
         weights_scipy = scipy.sparse.csc_matrix((weights.values(), weights.row_indices(), weights.ccol_indices()), shape=(self.v, self.v))
         weights_transpose = weights.t().to_sparse_csc()
@@ -150,7 +170,10 @@ class QuasiStableColoring:
         self.init_status(color_status_in, weights_transpose)
         del weights
         del weights_transpose
+        time2 = time.time()
+        self.logger.info(f'Start coloring, time cost: {time2-time1:.2f} seconds.')
 
+        pre_time = time2
         while len(self.p) < n_colors:
             if len(self.p) == color_status_in.n:
                 color_status_in.resize(color_status_in.n * 2)
@@ -158,16 +181,24 @@ class QuasiStableColoring:
 
             witness_in_i, witness_in_j, split_deg_in, q_error_in = self.pick_witness(color_status_in)
             witness_out_i, witness_out_j, split_deg_out, q_error_out = self.pick_witness(color_status_out)
+            
 
-            if len(self.p) % 10 == 0:
-                print(f"{len(self.p)} colors with {max(q_error_in, q_error_out)} error")
+            if len(self.p) % self.log_step == 0:
+                time3 = time.time()
+                time_cost = round(time3 - pre_time, 2)
+                q_error = max(q_error_in, q_error_out)
+                self.logger.info(f"{len(self.p)} colors with {q_error} error, time_cost {time_cost} seconds.")
+                time_cost_list.append(time_cost)
+                pre_time = time3
+                q_error_in_list.append(q_error_in.item())
+                q_error_out_list.append(q_error_out.item())
+                q_error_list.append(q_error.item())
 
-            if len(self.p) % 100 ==0: 
+            if len(self.p) % self.store_step == 0: 
                 if self.store:
                     file_name = os.path.join(self.store_root, str(len(self.p)) + ".json")
-                    with open(file_name, 'w') as f:
-                        converted_list = [t.tolist() for t in self.p]
-                        json.dump(converted_list, f)
+                    converted_list = [t.tolist() for t in self.p]
+                    save_list_to_json(converted_list, file_name)
                     
             if q_error_in <= q_errors and q_error_out <= q_errors:
                 break
@@ -184,4 +215,67 @@ class QuasiStableColoring:
         _, _, _, q_errors_out = self.pick_witness(color_status_out)
         _, _, _, q_errors_in = self.pick_witness(color_status_in)
         self.q_error = max(q_errors_out, q_errors_in)
-        print(f"refined and got {len(self.p)} colors with {self.q_error} q-error")
+        self.logger.info(f"refined and got {len(self.p)} colors with {self.q_error} q-error")
+        file_name = os.path.join(self.store_root, f"time_cost" + ".json")
+        save_list_to_json(time_cost_list, file_name)
+        file_name = os.path.join(self.store_root, f"q_error_in" + ".json")
+        save_list_to_json(q_error_in_list, file_name)
+        file_name = os.path.join(self.store_root, f"q_error_out" + ".json")
+        save_list_to_json(q_error_out_list, file_name)
+        file_name = os.path.join(self.store_root, f"q_error" + ".json")
+        save_list_to_json(q_error_list, file_name)
+
+    def q_color_undirected(self, n_colors=np.Inf, q_errors=0.0):
+        time_cost_list = []
+        q_error_list = []
+        time1 = time.time()
+        weights = self.G.adj_t.to_sparse_csc()
+        weights_scipy = scipy.sparse.csc_matrix((weights.values(), weights.row_indices(), weights.ccol_indices()), shape=(self.v, self.v))
+
+        color_status = ColorStatus(self.v, int(min(n_colors, self.BASE_MATRIX_SIZE)))
+        self.init_status(color_status, weights)
+        del weights
+        time2 = time.time()
+        self.logger.info(f'Start coloring, time cost: {time2-time1:.2f} seconds.')
+
+        pre_time = time2
+        while len(self.p) < n_colors:
+            if len(self.p) == color_status.n:
+                color_status.resize(color_status.n * 2)
+
+            witness_i, witness_j, split_deg, q_error = self.pick_witness(color_status)
+
+            if len(self.p) % self.log_step == 0:
+                time3 = time.time()
+                time_cost = round(time3 - pre_time, 2)
+                self.logger.info(f"{len(self.p)} colors with {q_error} error, time_cost {time_cost} seconds.")
+                time_cost_list.append(time_cost)
+                pre_time = time3
+                q_error_list.append(q_error.item())
+
+            if len(self.p) % self.store_step == 0: 
+                if self.store:
+                    file_name = os.path.join(self.store_root, str(len(self.p)) + ".json")
+                    converted_list = [t.tolist() for t in self.p]
+                    save_list_to_json(converted_list, file_name)
+                    
+            if q_error <= q_errors:
+                break
+
+            self.split_color(color_status, witness_i, witness_j, split_deg)
+            self.update_status(color_status, weights_scipy, witness_i, len(self.p) - 1)
+
+        _, _, _, q_error = self.pick_witness(color_status)
+        self.q_error = q_error
+        self.logger.info(f"refined and got {len(self.p)} colors with {self.q_error} q-error")
+        file_name = os.path.join(self.store_root, f"time_cost" + ".json")
+        save_list_to_json(time_cost_list, file_name)
+        file_name = os.path.join(self.store_root, f"q_error" + ".json")
+        save_list_to_json(q_error_list, file_name)
+
+    def q_color(self, n_colors=np.Inf, q_errors=0.0):
+        self.logger.info(f"Start logging, store root {self.store_root}, store colors: {self.store}, directed: {self.directed}")
+        if self.directed:
+            self.q_color_directed(n_colors, q_errors)
+        else:
+            self.q_color_undirected(n_colors, q_errors)
