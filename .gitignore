@@ -54,6 +54,7 @@ cover/
 # Translations
 *.mo
 *.pot
+*.avi
 
 # Django stuff:
 *.log
@@ -127,6 +128,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+pic/
 
 # Spyder project settings
 .spyderproject
