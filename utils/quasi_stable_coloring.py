@@ -5,6 +5,7 @@ import json
 import os
 import time
 import logging
+import itertools
 
 def save_list_to_json(l:list, filename):
     with open(filename, 'w') as f:
@@ -174,7 +175,7 @@ class QuasiStableColoring:
         self.logger.info(f'Start coloring, time cost: {time2-time1:.2f} seconds.')
 
         pre_time = time2
-        while len(self.p) < n_colors:
+        while len(self.p) <= n_colors:
             if len(self.p) == color_status_in.n:
                 color_status_in.resize(color_status_in.n * 2)
                 color_status_out.resize(color_status_out.n * 2)
@@ -196,8 +197,18 @@ class QuasiStableColoring:
 
             if len(self.p) % self.store_step == 0: 
                 if self.store:
-                    file_name = os.path.join(self.store_root, str(len(self.p)) + ".json")
-                    converted_list = [t.tolist() for t in self.p]
+                    file_name = os.path.join(self.store_root, f"{len(self.p):04d}" + ".json")
+                    converted_list = []
+                    converted_list.append([t.tolist() for t in self.p])
+                    adj_t = torch.zeros((len(self.p), len(self.p)), dtype=torch.float32)
+                    neighbor = color_status_out.neighbor
+                    for i, p in enumerate(self.p):
+                        adj_t[i] = torch.sum(neighbor[p], dim=0)
+                    
+                    converted_list.append([t.tolist() for t in adj_t])
+                    cost_time = sum(time_cost_list)
+                    converted_list.append(cost_time)
+
                     save_list_to_json(converted_list, file_name)
                     
             if q_error_in <= q_errors and q_error_out <= q_errors:
@@ -216,8 +227,10 @@ class QuasiStableColoring:
         _, _, _, q_errors_in = self.pick_witness(color_status_in)
         self.q_error = max(q_errors_out, q_errors_in)
         self.logger.info(f"refined and got {len(self.p)} colors with {self.q_error} q-error")
-        file_name = os.path.join(self.store_root, f"time_cost" + ".json")
+        file_name = os.path.join(self.store_root, "time_cost_per_10_colors.json")
         save_list_to_json(time_cost_list, file_name)
+        file_name = os.path.join(self.store_root, 'time_cost_over_all.json')
+        save_list_to_json(list(itertools.accumulate(time_cost_list)), file_name)
         file_name = os.path.join(self.store_root, f"q_error_in" + ".json")
         save_list_to_json(q_error_in_list, file_name)
         file_name = os.path.join(self.store_root, f"q_error_out" + ".json")
@@ -239,7 +252,7 @@ class QuasiStableColoring:
         self.logger.info(f'Start coloring, time cost: {time2-time1:.2f} seconds.')
 
         pre_time = time2
-        while len(self.p) < n_colors:
+        while len(self.p) <= n_colors:
             if len(self.p) == color_status.n:
                 color_status.resize(color_status.n * 2)
 
@@ -256,7 +269,15 @@ class QuasiStableColoring:
             if len(self.p) % self.store_step == 0: 
                 if self.store:
                     file_name = os.path.join(self.store_root, str(len(self.p)) + ".json")
-                    converted_list = [t.tolist() for t in self.p]
+                    converted_list = []
+                    converted_list.append([t.tolist() for t in self.p])
+                    neighbor = color_status.neighbor
+                    adj_t = torch.zeros(len(self.p), len(self.p), dtype=torch.float32)
+                    for i, p in enumerate(self.p):
+                        adj_t[i] = torch.sum(neighbor[p], dim=0)
+                    converted_list.append([t.tolist() for t in adj_t])
+                    cost_time = sum(time_cost_list)
+                    converted_list.append(cost_time)
                     save_list_to_json(converted_list, file_name)
                     
             if q_error <= q_errors:
@@ -268,8 +289,10 @@ class QuasiStableColoring:
         _, _, _, q_error = self.pick_witness(color_status)
         self.q_error = q_error
         self.logger.info(f"refined and got {len(self.p)} colors with {self.q_error} q-error")
-        file_name = os.path.join(self.store_root, f"time_cost" + ".json")
+        file_name = os.path.join(self.store_root, "time_cost_per_10_colors.json")
         save_list_to_json(time_cost_list, file_name)
+        file_name = os.path.join(self.store_root, 'time_cost_over_all.json')
+        save_list_to_json(list(itertools.accumulate(time_cost_list)), file_name)
         file_name = os.path.join(self.store_root, f"q_error" + ".json")
         save_list_to_json(q_error_list, file_name)
 
