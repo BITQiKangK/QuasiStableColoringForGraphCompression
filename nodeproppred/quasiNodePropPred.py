@@ -22,7 +22,7 @@ def quasi(dataset_name, directed):
     data.adj_t = data.adj_t.to_torch_sparse_coo_tensor()
     store_root = f"data_compressed/{dataset_name}/"
     store_root += "directed" if directed else "undirected"
-    qsc = QuasiStableColoring(data, store_root, directed)
+    qsc = QuasiStableColoring(data, store_root=store_root, directed=directed, store=True)
     qsc.q_color(n_colors=3000)
 
 
