@@ -69,7 +69,7 @@ class QuasiStableColoring:
 
         logging.basicConfig(level=logging.INFO,
                             format='%(asctime)s - %(levelname)s - %(message)s',
-                            handlers=[logging.FileHandler(os.path.join(self.store_root, f'logfile_store_{store}.log'), mode='w'), 
+                            handlers=[logging.FileHandler(os.path.join(self.store_root, 'logfile.log'), mode='w'), 
                                       logging.StreamHandler()])
         self.logger = logging.getLogger('my_logger')
 
@@ -173,8 +173,8 @@ class QuasiStableColoring:
         del weights_transpose
         time2 = time.time()
         self.logger.info(f'Start coloring, time cost: {time2-time1:.2f} seconds.')
-
         pre_time = time2
+
         while len(self.p) <= n_colors:
             if len(self.p) == color_status_in.n:
                 color_status_in.resize(color_status_in.n * 2)
@@ -182,7 +182,6 @@ class QuasiStableColoring:
 
             witness_in_i, witness_in_j, split_deg_in, q_error_in = self.pick_witness(color_status_in)
             witness_out_i, witness_out_j, split_deg_out, q_error_out = self.pick_witness(color_status_out)
-            
 
             if len(self.p) % self.log_step == 0:
                 time3 = time.time()
@@ -190,7 +189,6 @@ class QuasiStableColoring:
                 q_error = max(q_error_in, q_error_out)
                 self.logger.info(f"{len(self.p)} colors with {q_error} error, time_cost {time_cost} seconds.")
                 time_cost_list.append(time_cost)
-                pre_time = time3
                 q_error_in_list.append(q_error_in.item())
                 q_error_out_list.append(q_error_out.item())
                 q_error_list.append(q_error.item())
@@ -211,6 +209,7 @@ class QuasiStableColoring:
 
                     save_list_to_json(converted_list, file_name)
                     
+            pre_time = time.time()
             if q_error_in <= q_errors and q_error_out <= q_errors:
                 break
 
@@ -222,6 +221,7 @@ class QuasiStableColoring:
                 self.split_color(color_status_in, witness_in_i, witness_in_j, split_deg_in)
                 self.update_status(color_status_out, weights_scipy, witness_in_i, len(self.p) - 1)
                 self.update_status(color_status_in, weights_transpose_scipy, witness_in_i, len(self.p) - 1)
+            
 
         _, _, _, q_errors_out = self.pick_witness(color_status_out)
         _, _, _, q_errors_in = self.pick_witness(color_status_in)
@@ -263,12 +263,11 @@ class QuasiStableColoring:
                 time_cost = round(time3 - pre_time, 2)
                 self.logger.info(f"{len(self.p)} colors with {q_error} error, time_cost {time_cost} seconds.")
                 time_cost_list.append(time_cost)
-                pre_time = time3
                 q_error_list.append(q_error.item())
 
             if len(self.p) % self.store_step == 0: 
                 if self.store:
-                    file_name = os.path.join(self.store_root, str(len(self.p)) + ".json")
+                    file_name = os.path.join(self.store_root, f"{len(self.p):04d}.json")
                     converted_list = []
                     converted_list.append([t.tolist() for t in self.p])
                     neighbor = color_status.neighbor
@@ -279,7 +278,8 @@ class QuasiStableColoring:
                     cost_time = sum(time_cost_list)
                     converted_list.append(cost_time)
                     save_list_to_json(converted_list, file_name)
-                    
+
+            pre_time = time3            
             if q_error <= q_errors:
                 break
 
