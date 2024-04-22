@@ -202,7 +202,7 @@ class QuasiStableColoring:
                     adj_t = torch.zeros((len(self.p), len(self.p)), dtype=torch.float32)
                     neighbor = color_status_out.neighbor
                     for i, p in enumerate(self.p):
-                        adj_t[i] = torch.sum(neighbor[p], dim=0)
+                        adj_t[i] = torch.mean(neighbor[p], dim=0)
                     
                     converted_list.append([t.tolist() for t in adj_t])
                     cost_time = sum(time_cost_list)

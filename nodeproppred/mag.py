@@ -11,97 +11,10 @@ from ogb.nodeproppred import PygNodePropPredDataset, Evaluator
 
 import sys
 sys.path.append("./")
+from model.GCN import GCN
+from model.SAGE import SAGE
 from utils.logger import Logger
-
-
-class GCN(torch.nn.Module):
-    def __init__(self, in_channels, hidden_channels, out_channels, num_layers,
-                 dropout):
-        super(GCN, self).__init__()
-
-        self.convs = torch.nn.ModuleList()
-        self.convs.append(
-            GCNConv(in_channels, hidden_channels, normalize=False))
-        for _ in range(num_layers - 2):
-            self.convs.append(
-                GCNConv(hidden_channels, hidden_channels, normalize=False))
-        self.convs.append(
-            GCNConv(hidden_channels, out_channels, normalize=False))
-
-        self.dropout = dropout
-
-    def reset_parameters(self):
-        for conv in self.convs:
-            conv.reset_parameters()
-
-    def forward(self, x, adj_t):
-        for i, conv in enumerate(self.convs[:-1]):
-            x = conv(x, adj_t)
-            x = F.relu(x)
-            x = F.dropout(x, p=self.dropout, training=self.training)
-        x = self.convs[-1](x, adj_t)
-        return x.log_softmax(dim=-1)
-
-
-class SAGE(torch.nn.Module):
-    def __init__(self, in_channels, hidden_channels, out_channels, num_layers,
-                 dropout):
-        super(SAGE, self).__init__()
-
-        self.convs = torch.nn.ModuleList()
-        self.convs.append(SAGEConv(in_channels, hidden_channels))
-        for _ in range(num_layers - 2):
-            self.convs.append(SAGEConv(hidden_channels, hidden_channels))
-        self.convs.append(SAGEConv(hidden_channels, out_channels))
-
-        self.dropout = dropout
-
-    def reset_parameters(self):
-        for conv in self.convs:
-            conv.reset_parameters()
-
-    def forward(self, x, adj_t):
-        for i, conv in enumerate(self.convs[:-1]):
-            x = conv(x, adj_t)
-            x = F.relu(x)
-            x = F.dropout(x, p=self.dropout, training=self.training)
-        x = self.convs[-1](x, adj_t)
-        return x.log_softmax(dim=-1)
-
-
-def train(model, data, train_idx, optimizer):
-    model.train()
-
-    optimizer.zero_grad()
-    out = model(data.x, data.adj_t)[train_idx]
-    loss = F.nll_loss(out, data.y.squeeze(1)[train_idx])
-    loss.backward()
-    optimizer.step()
-
-    return loss.item()
-
-
-@torch.no_grad()
-def test(model, data, split_idx, evaluator):
-    model.eval()
-
-    out = model(data.x, data.adj_t)
-    y_pred = out.argmax(dim=-1, keepdim=True)
-
-    train_acc = evaluator.eval({
-        'y_true': data.y[split_idx['train']['paper']],
-        'y_pred': y_pred[split_idx['train']['paper']],
-    })['acc']
-    valid_acc = evaluator.eval({
-        'y_true': data.y[split_idx['valid']['paper']],
-        'y_pred': y_pred[split_idx['valid']['paper']],
-    })['acc']
-    test_acc = evaluator.eval({
-        'y_true': data.y[split_idx['test']['paper']],
-        'y_pred': y_pred[split_idx['test']['paper']],
-    })['acc']
-
-    return train_acc, valid_acc, test_acc
+from utils.utils import train, test
 
 
 def main():

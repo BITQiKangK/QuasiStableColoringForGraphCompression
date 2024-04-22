@@ -105,8 +105,8 @@ def test(model, data, split_idx, evaluator):
 
 def main():
     parser = argparse.ArgumentParser(description='OGBN-Products (GNN)')
-    parser.add_argument('--device', type=int, default=1)
-    parser.add_argument('--log_steps', type=int, default=30)
+    parser.add_argument('--device', type=int, default=0)
+    parser.add_argument('--log_steps', type=int, default=1)
     parser.add_argument('--use_sage', action='store_true')
     parser.add_argument('--num_layers', type=int, default=3)
     parser.add_argument('--hidden_channels', type=int, default=256)
@@ -117,8 +117,7 @@ def main():
     args = parser.parse_args()
     print(args)
 
-    torch.cuda.set_device(args.device)
-    device = torch.cuda.current_device()
+    device = "cpu"
 
     dataset = PygNodePropPredDataset(name='ogbn-products',
                                      transform=T.ToSparseTensor())
@@ -147,7 +146,7 @@ def main():
     data = data.to(device)
 
     evaluator = Evaluator(name='ogbn-products')
-    logger = Logger(args.runs, args)
+    logger = Logger(args.runs)
 
     for run in range(args.runs):
         model.reset_parameters()
@@ -166,7 +165,7 @@ def main():
                       f'Valid: {100 * valid_acc:.2f}% '
                       f'Test: {100 * test_acc:.2f}%')
 
-        logger.print_statistics(run)
+        print(logger.print_statistics(run))
     logger.print_statistics()
 
 

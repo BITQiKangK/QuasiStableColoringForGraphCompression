@@ -23,11 +23,11 @@ def quasi(dataset_name, directed):
     store_root = f"data_compressed/{dataset_name}/"
     store_root += "directed" if directed else "undirected"
     qsc = QuasiStableColoring(data, store_root=store_root, directed=directed, store=True)
-    qsc.q_color(n_colors=3000)
+    qsc.q_color(n_colors=2000)
 
 
 if __name__ == '__main__':
-    for dataset_name in ['arxiv', 'products', 'mag', 'proteins']:
+    for dataset_name in ['arxiv']:
         if dataset_name in ['arxiv', 'mag']:
             for directed in [True, False]:
                 quasi(dataset_name, directed)

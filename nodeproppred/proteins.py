@@ -1,16 +1,16 @@
 import argparse
-
 import torch
 import torch.nn.functional as F
-
 import torch_geometric.transforms as T
-from torch_geometric.nn import GCNConv, SAGEConv
-
+from torch_geometric.nn import GCNConv
 from ogb.nodeproppred import PygNodePropPredDataset, Evaluator
-
 import sys
 sys.path.append("./")
+from utils.quasi_stable_coloring import QuasiStableColoring
+import time
+from model.GCN import GCN
 from utils.logger import Logger
+from utils.utils import train, test
 
 
 class GCN(torch.nn.Module):
@@ -26,32 +26,6 @@ class GCN(torch.nn.Module):
                 GCNConv(hidden_channels, hidden_channels, normalize=False))
         self.convs.append(
             GCNConv(hidden_channels, out_channels, normalize=False))
-
-        self.dropout = dropout
-
-    def reset_parameters(self):
-        for conv in self.convs:
-            conv.reset_parameters()
-
-    def forward(self, x, adj_t):
-        for conv in self.convs[:-1]:
-            x = conv(x, adj_t)
-            x = F.relu(x)
-            x = F.dropout(x, p=self.dropout, training=self.training)
-        x = self.convs[-1](x, adj_t)
-        return x
-
-
-class SAGE(torch.nn.Module):
-    def __init__(self, in_channels, hidden_channels, out_channels, num_layers,
-                 dropout):
-        super(SAGE, self).__init__()
-
-        self.convs = torch.nn.ModuleList()
-        self.convs.append(SAGEConv(in_channels, hidden_channels))
-        for _ in range(num_layers - 2):
-            self.convs.append(SAGEConv(hidden_channels, hidden_channels))
-        self.convs.append(SAGEConv(hidden_channels, out_channels))
 
         self.dropout = dropout
 
@@ -107,13 +81,12 @@ def main():
     parser = argparse.ArgumentParser(description='OGBN-Proteins (GNN)')
     parser.add_argument('--device', type=int, default=0)
     parser.add_argument('--log_steps', type=int, default=1)
-    parser.add_argument('--use_sage', action='store_true')
     parser.add_argument('--num_layers', type=int, default=3)
     parser.add_argument('--hidden_channels', type=int, default=256)
     parser.add_argument('--dropout', type=float, default=0.0)
     parser.add_argument('--lr', type=float, default=0.01)
     parser.add_argument('--epochs', type=int, default=1000)
-    parser.add_argument('--eval_steps', type=int, default=20)
+    parser.add_argument('--eval_steps', type=int, default=100)
     parser.add_argument('--runs', type=int, default=10)
     args = parser.parse_args()
     print(args)
@@ -132,27 +105,25 @@ def main():
     split_idx = dataset.get_idx_split()
     train_idx = split_idx['train'].to(device)
 
-    if args.use_sage:
-        model = SAGE(data.num_features, args.hidden_channels, 112,
-                     args.num_layers, args.dropout).to(device)
-    else:
-        model = GCN(data.num_features, args.hidden_channels, 112,
-                    args.num_layers, args.dropout).to(device)
+    model = GCN(data.num_features, args.hidden_channels, 112,
+                args.num_layers, args.dropout).to(device)
 
-        # Pre-compute GCN normalization.
-        adj_t = data.adj_t.set_diag()
-        deg = adj_t.sum(dim=1).to(torch.float)
-        deg_inv_sqrt = deg.pow(-0.5)
-        deg_inv_sqrt[deg_inv_sqrt == float('inf')] = 0
-        adj_t = deg_inv_sqrt.view(-1, 1) * adj_t * deg_inv_sqrt.view(1, -1)
-        data.adj_t = adj_t
+    # Pre-compute GCN normalization.
+    adj_t = data.adj_t.set_diag()
+    deg = adj_t.sum(dim=1).to(torch.float)
+    deg_inv_sqrt = deg.pow(-0.5)
+    deg_inv_sqrt[deg_inv_sqrt == float('inf')] = 0
+    adj_t = deg_inv_sqrt.view(-1, 1) * adj_t * deg_inv_sqrt.view(1, -1)
+    data.adj_t = adj_t
 
     data = data.to(device)
 
     evaluator = Evaluator(name='ogbn-proteins')
-    logger = Logger(args.runs, args)
+    logger = Logger(args.runs)
 
+    sum_time = []
     for run in range(args.runs):
+        start = time.time()
         model.reset_parameters()
         optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
         for epoch in range(1, 1 + args.epochs):
@@ -171,8 +142,12 @@ def main():
                           f'Valid: {100 * valid_rocauc:.2f}% '
                           f'Test: {100 * test_rocauc:.2f}%')
 
-        logger.print_statistics(run)
-    logger.print_statistics()
+        print(logger.print_statistics(run))
+        end = time.time()
+        cost = end - start
+        print(f'Time Cost: {cost:.2f}')
+        sum_time.append(cost)
+    print(logger.print_statistics())
 
 
 if __name__ == "__main__":

@@ -23,8 +23,7 @@ class Logger(object):
             s += f'Highest Train: {result[:, 0].max():.4f}\n'
             s += f'Highest Valid: {result[:, 1].max():.4f}\n'
             s += f'  Final Train: {result[argmax, 0]:.4f}\n'
-            s += f'   Final Test: {result[argmax, 2]:.4f}\n'
-            return s
+            s += f'   Final Test: {result[argmax, 2]:.4f}'
         else:
             result = torch.tensor(self.results)
 
@@ -39,12 +38,15 @@ class Logger(object):
             best_result = torch.tensor(best_results)
 
             s = ""
-            s += f'All runs:'
+            s += f'All runs:\n'
             r = best_result[:, 0]
-            s += f'Highest Train: {r.mean():.4f} ± {r.std():.4f}'
+            s += f'Highest Train: {r.mean():.4f} ± {r.std():.4f}\n'
             r = best_result[:, 1]
-            s += f'Highest Valid: {r.mean():.4f} ± {r.std():.4f}'
+            s += f'Highest Valid: {r.mean():.4f} ± {r.std():.4f}\n'
             r = best_result[:, 2]
-            s += f'  Final Train: {r.mean():.4f} ± {r.std():.4f}'
+            s += f'  Final Train: {r.mean():.4f} ± {r.std():.4f}\n'
             r = best_result[:, 3]
             s += f'   Final Test: {r.mean():.4f} ± {r.std():.4f}'
+        
+        return s
+        
