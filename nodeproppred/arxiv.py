@@ -18,7 +18,7 @@ def train(model, data, train_idx, optimizer):
 
     optimizer.zero_grad()
     out = model(data.x, data.adj_t)[train_idx]
-    loss = F.cross_entropy(out, data.y.squeeze(1)[train_idx])
+    loss = F.nll_loss(out + 1e-8, data.y.squeeze(1)[train_idx])
     loss.backward()
     optimizer.step()
 
@@ -52,13 +52,13 @@ def main():
     parser = argparse.ArgumentParser(description='OGBN-Arxiv (GNN)')
     parser.add_argument('--device', type=int, default=0)
     parser.add_argument('--log_steps', type=int, default=10)
-    parser.add_argument('--num_layers', type=int, default=2)
+    parser.add_argument('--num_layers', type=int, default=3)
     parser.add_argument('--hidden_channels', type=int, default=256)
     parser.add_argument('--dropout', type=float, default=0.5)
-    parser.add_argument('--lr', type=float, default=0.01)
-    parser.add_argument('--epochs', type=int, default=500)
+    parser.add_argument('--lr', type=float, default=1e-4)
+    parser.add_argument('--epochs', type=int, default=1000)
     parser.add_argument('--runs', type=int, default=10)
-    parser.add_argument('--num_colors', type=int, default=2000)
+    parser.add_argument('--num_colors', type=int, default=5900)
     args = parser.parse_args()
 
     # set logger
@@ -84,11 +84,11 @@ def main():
     device = torch.device(device)
 
     # data load
-    data_original, split_idx = data_loader("arxiv", num_colors=0, logger=logger)
+    data_original, split_idx = data_loader("arxiv", num_colors=0, directed=False, logger=logger)
     if args.num_colors == 0:
         data = data_original
     else:
-        data, split_idx = data_loader("arxiv", args.num_colors, logger=logger)
+        data, split_idx = data_loader("arxiv", args.num_colors, directed=False, logger=logger)
 
     data_original = data_original.to(device)
     data = data.to(device)

@@ -12,7 +12,7 @@ import torch.nn.functional as F
 def compressed_data(data, adj_t, colors, split_idx, num_classes):
     new_x = torch.zeros(len(colors), data.x.shape[1])
     for i in range(new_x.shape[0]):
-        new_x[i] = data.x[i][0]
+        new_x[i] = torch.mean(data.x[colors[i]], dim=0)
 
     adj_t = torch.tensor(adj_t)
     deg = adj_t.sum(dim=1).to(torch.float)
