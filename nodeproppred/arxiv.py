@@ -11,6 +11,7 @@ from model.GCN import GCN
 import logging
 import os
 from utils.data_provider import data_loader
+from torch.optim.lr_scheduler import StepLR, MultiStepLR
 
 
 def train(model, data, train_idx, optimizer):
@@ -50,15 +51,15 @@ def test(model, data, split_idx, evaluator):
 
 def main():
     parser = argparse.ArgumentParser(description='OGBN-Arxiv (GNN)')
-    parser.add_argument('--device', type=int, default=0)
+    parser.add_argument('--device', type=int, default=1)
     parser.add_argument('--log_steps', type=int, default=10)
-    parser.add_argument('--num_layers', type=int, default=3)
+    parser.add_argument('--num_layers', type=int, default=4)
     parser.add_argument('--hidden_channels', type=int, default=256)
-    parser.add_argument('--dropout', type=float, default=0.5)
+    parser.add_argument('--dropout', type=float, default=0.8)
     parser.add_argument('--lr', type=float, default=1e-4)
-    parser.add_argument('--epochs', type=int, default=1000)
+    parser.add_argument('--epochs', type=int, default=5000)
     parser.add_argument('--runs', type=int, default=10)
-    parser.add_argument('--num_colors', type=int, default=5900)
+    parser.add_argument('--num_colors', type=int, default=10000)
     args = parser.parse_args()
 
     # set logger
@@ -76,12 +77,11 @@ def main():
                             handlers=[logging.FileHandler(os.path.join(store_root, f'{file_name}.log'), mode='w'), 
                                       logging.StreamHandler()])
 
-    logging.info(args)
     logger = logging.getLogger()
+    logger.info(args)
 
     # device setup
-    device = f'cuda:{args.device}' if torch.cuda.is_available() else 'cpu'
-    device = torch.device(device)
+    device = torch.device("cuda:0")
 
     # data load
     data_original, split_idx = data_loader("arxiv", num_colors=0, directed=False, logger=logger)
@@ -103,6 +103,7 @@ def main():
     for run in range(args.runs):
         model.reset_parameters()
         optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
+
         for epoch in range(1, 1 + args.epochs):
             loss = train(model, data, data.train_idx, optimizer)
             result = test(model, data_original, split_idx, evaluator)
@@ -115,7 +116,7 @@ def main():
                             f'Loss: {loss:.4f}, '
                             f'Train: {100 * train_acc:.2f}%, '
                             f'Valid: {100 * valid_acc:.2f}% '
-                            f'Test: {100 * test_acc:.2f}%')
+                            f'Test: {100 * test_acc:.2f}% ')
 
         logger.info(metric_logger.print_statistics(run))
     logger.info(metric_logger.print_statistics())

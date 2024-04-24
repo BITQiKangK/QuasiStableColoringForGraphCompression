@@ -27,9 +27,9 @@ def quasi(dataset_name, directed):
 
 
 if __name__ == '__main__':
-    for dataset_name in ['arxiv']:
+    for dataset_name in ['proteins']:
         if dataset_name in ['arxiv', 'mag']:
-            for directed in [False]:
+            for directed in [True, False]:
                 quasi(dataset_name, directed)
             continue
         

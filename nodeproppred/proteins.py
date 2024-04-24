@@ -10,7 +10,6 @@ from utils.quasi_stable_coloring import QuasiStableColoring
 import time
 from model.GCN import GCN
 from utils.logger import Logger
-from utils.utils import train, test
 
 
 class GCN(torch.nn.Module):

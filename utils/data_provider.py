@@ -10,9 +10,18 @@ import torch.nn.functional as F
 
 
 def compressed_data(data, adj_t, colors, split_idx, num_classes):
+    y_onehot = F.one_hot(data.y, num_classes=num_classes)
+    # y_onehot[split_idx['valid']] = torch.zeros(1, num_classes).type(torch.LongTensor)
+    y_onehot[split_idx['test']] = torch.zeros(1, num_classes).type(torch.LongTensor)
+    new_y = torch.zeros(len(colors), num_classes)
+    for i, x in enumerate(colors):
+        new_y[i] = torch.sum(y_onehot[x], dim=0)
+        new_y[i] = new_y[i] / torch.sum(new_y[i])
+    new_y = torch.argmax(new_y, dim=1, keepdim=True)
+
     new_x = torch.zeros(len(colors), data.x.shape[1])
-    for i in range(new_x.shape[0]):
-        new_x[i] = torch.mean(data.x[colors[i]], dim=0)
+    for i, X in enumerate(colors):
+        new_x[i] = torch.mean(data.x[X], dim=0)
 
     adj_t = torch.tensor(adj_t)
     deg = adj_t.sum(dim=1).to(torch.float)
@@ -21,14 +30,7 @@ def compressed_data(data, adj_t, colors, split_idx, num_classes):
     adj_t = deg_inv_sqrt.view(-1, 1) * adj_t * deg_inv_sqrt.view(1, -1)
     adj_t = adj_t.to_sparse_coo()
 
-    y_onehot = F.one_hot(data.y, num_classes=num_classes)
-    y_onehot[split_idx['valid']] = torch.zeros(1, 40).type(torch.LongTensor)
-    y_onehot[split_idx['test']] = torch.zeros(1, 40).type(torch.LongTensor)
-    new_y = torch.zeros(len(colors), num_classes)
-    for i, x in enumerate(colors):
-        new_y[i] = torch.sum(y_onehot[x], dim=0)
-        new_y[i] = new_y[i] / torch.sum(new_y[i])
-    new_y = torch.argmax(new_y, dim=1, keepdim=True)
+    
     data = Data(x=new_x, edge_index=adj_t.indices(), y=new_y)
     data.adj_t = adj_t.to_sparse_csr()
 
